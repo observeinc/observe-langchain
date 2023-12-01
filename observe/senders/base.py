@@ -88,7 +88,7 @@ class ObserveSender(object):
         self.sending: Optional[threading.Thread] = threading.Thread(target=self._send_thread, daemon=True, name="observe not closed")
         self.sending.start()
 
-    def enqueue(self, data: dict) -> None:
+    def enqueue(self, what: str, data: dict) -> None:
         """enqueue a dict of data (must be JSON marshal-able) to be sent to the
         configured Observe collector"""
         with self.cond:
@@ -100,9 +100,9 @@ class ObserveSender(object):
                 raise Exception('attempt to enqueue observations when already closed')
             timestamp = str(int(time.time()*1e9))
             if self.metadata_key:
-                self.queue.append(merge(data, {self.metadata_key: merge(self.metadata, {"timestamp":timestamp})}))
+                self.queue.append(merge(data, {self.metadata_key: merge(self.metadata, {"timestamp":timestamp}), "what":what}))
             elif self.metadata_key != '':
-                self.queue.append(merge(data, self.metadata, {"timestamp":timestamp}))
+                self.queue.append(merge(data, self.metadata, {"timestamp":timestamp, "what":what}))
             else:
                 self.queue.append(data)
             self.cond.notify()

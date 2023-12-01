@@ -1,5 +1,5 @@
 import json
-from typing import(List, Optional, Union)
+from typing import(List, Optional, Union, Dict)
 
 from langchain_core.tracers.schemas import Run
 from langchain_core.tracers.base import BaseTracer
@@ -9,8 +9,28 @@ from .base import ObserveSender
 
 
 class ObserveTracer(BaseTracer):
+    """Send structured data to Observe based on Langchain callbacks
+    
+    set the environment:
+    
+    OBSERVE_CUSTOMERID=1234567890
+    OBSERVE_HOST=observeinc.com
+    OBSERVE_AUTHTOKEN=ds1ASDLKJSALDKSJA.ASLDKJSALDKJSLAKJDLKSJADSLAKJD
+    
+    create ONE TRACER for your program, and pass it to all your workers/tools:
+    
+    tracer=ObserveTracer()
+    llm = ChatOpenAI(temperature=0.5, model_name="gpt-4", callbacks=[tracer])
+    text = "What does Observe Inc do?"
+    print(llm.predict(text))
+    
+    See observe.senders.base.ObserveSender for more specifics.
+    """
     def __init__(self, host:Optional[str]=None, customerid:Optional[str]=None, authtoken:Optional[str]=None, path:Optional[str]=None, accept_no_config:bool=False, log_sends:bool=False):
         self.sender = ObserveSender(host=host, customerid=customerid, authtoken=authtoken, path=path, accept_no_config=accept_no_config, log_sends=log_sends)
+        self.sender.enqueue('starting', {})
+
+    run_map: Dict[str, Run] = {}
 
     def _on_run_create(self, run: Run) -> None:
         self.sender.enqueue('run_create', self._run_to_dict(run=run, include_children=False))
@@ -62,7 +82,10 @@ class ObserveTracer(BaseTracer):
 
     def _run_to_dict(self, run:Run, include_children:bool) -> dict:
         data = json.loads(run.json())
+        if (not include_children) and ('child_runs' in data):
+            del data['child_runs']
         return data
 
-
+    def close(self) -> None:
+        self.sender.close()
 
