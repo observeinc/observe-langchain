@@ -108,8 +108,10 @@ class ObserveSender(object):
             self.cond.notify()
 
     def close(self) -> None:
-        """Flush all pending data and wait for it to be posted. If the final
-        post fails, the data are lost."""
+        """Flush all pending data and wait for it to be posted. Stop accepting new data.
+
+        If the final post fails, the data are lost.
+        """
         with self.cond:
             if self.sending:
                 atexit.unregister(self.close)
@@ -232,6 +234,7 @@ def maybe_json(obj: dict) -> str:
         # put something in the payload so you can sort it out later
         global warned_unsupported
         emsg = str(e)
+        # only warn once per unsupported data type, to avoid spamming logs
         if not emsg in warned_unsupported:
             warned_unsupported.add(emsg)
             print(f'WARNING: ObserveTracer sending _unsupported because {emsg}', flush=True)
